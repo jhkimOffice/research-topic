@@ -1,12 +1,12 @@
 """
-Multi-Agent Research System
+Multi-Agent Research System with LangGraph
 메인 실행 파일
 """
 import sys
 import argparse
 from config import Config
 from utils import read_urls_from_file, read_keywords_from_file, validate_inputs
-from agents.orchestrator_agent import OrchestratorAgent
+from graph_workflow import run_research_workflow, visualize_graph
 
 
 def main():
@@ -53,6 +53,11 @@ def main():
         action='store_true',
         help='LLM 요약 사용 (OpenAI API 키 필요)'
     )
+    parser.add_argument(
+        '--visualize',
+        action='store_true',
+        help='LangGraph workflow 시각화 (Mermaid diagram 출력)'
+    )
 
     args = parser.parse_args()
 
@@ -67,6 +72,14 @@ def main():
 
     # 설정 출력
     Config.print_config()
+
+    # Graph 시각화 (옵션)
+    if args.visualize:
+        print("\n" + "=" * 80)
+        print("LangGraph Workflow 구조")
+        print("=" * 80)
+        visualize_graph()
+        print("=" * 80 + "\n")
 
     try:
         # 입력 파일 읽기
@@ -85,15 +98,13 @@ def main():
         for keyword, description in keywords:
             print(f"  - {keyword}: {description}")
 
-        # Orchestrator 초기화
-        print("\n\nOrchestrator Agent 초기화 중...")
-        orchestrator = OrchestratorAgent(config=Config.to_dict())
-
-        # 실행
-        result = orchestrator.execute({
-            'urls': urls,
-            'query_keywords': keywords
-        })
+        # LangGraph Workflow 실행
+        print("\n\nLangGraph Workflow 시작...")
+        result = run_research_workflow(
+            urls=urls,
+            query_keywords=keywords,
+            config=Config.to_dict()
+        )
 
         # 결과 출력
         if result.get('success'):
@@ -104,10 +115,10 @@ def main():
 
             metadata = result.get('metadata', {})
             print(f"\n통계:")
-            print(f"  - 분석 URL: {metadata.get('total_urls')}개")
-            print(f"  - 크롤링된 페이지: {metadata.get('crawled_pages')}개")
-            print(f"  - 필터링된 페이지: {metadata.get('filtered_pages')}개")
-            print(f"  - 생성된 그룹: {metadata.get('total_groups')}개")
+            print(f"  - 분석 URL: {metadata.get('total_urls', len(urls))}개")
+            print(f"  - 크롤링된 페이지: {metadata.get('crawled_pages', 0)}개")
+            print(f"  - 필터링된 페이지: {metadata.get('filtered_pages', 0)}개")
+            print(f"  - 생성된 그룹: {metadata.get('total_groups', 0)}개")
             print(f"  - 소요 시간: {metadata.get('processing_time', 0):.2f}초")
             print("\n" + "=" * 80)
 
@@ -116,7 +127,16 @@ def main():
             print("\n\n" + "=" * 80)
             print("실행 실패!")
             print("=" * 80)
-            print(f"오류: {result.get('error', '알 수 없는 오류')}")
+
+            # 에러 메시지 출력
+            errors = result.get('errors', [])
+            if errors:
+                print("발생한 오류:")
+                for error in errors:
+                    print(f"  - {error}")
+            else:
+                print(f"오류: {result.get('error', '알 수 없는 오류')}")
+
             print("=" * 80)
             return 1
 

@@ -15,7 +15,7 @@ class Config:
 
     # Web Crawler 설정
     CRAWLER_MAX_DEPTH = 2  # 크롤링 깊이
-    CRAWLER_MAX_PAGES = 50  # 최대 페이지 수
+    CRAWLER_MAX_PAGES = 25  # 최대 페이지 수
     CRAWLER_DELAY = 1.0  # 페이지 간 딜레이 (초)
 
     # Similarity Agent 설정

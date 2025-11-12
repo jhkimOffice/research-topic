@@ -1,16 +1,29 @@
-# Multi-Agent Research System
+# Multi-Agent Research System (LangGraph)
 
-Python 기반 AI Multi-Agent 시스템으로, 웹 크롤링, 유사도 분석, 요약, 보고서 생성을 자동화합니다.
+Python 기반 AI Multi-Agent 시스템으로, **LangGraph**를 사용하여 웹 크롤링, 유사도 분석, 요약, 보고서 생성을 자동화합니다.
 
 ## 시스템 아키텍처
 
-이 시스템은 5개의 전문화된 에이전트로 구성되어 있습니다:
+이 시스템은 **LangGraph**를 사용하여 4개의 전문화된 에이전트를 순차적으로 실행합니다:
 
-1. **Orchestrator Agent**: 모든 에이전트를 조정하고 워크플로우를 관리
-2. **Web Crawler Agent**: URL을 크롤링하고 키워드 관련 콘텐츠를 수집
-3. **Similarity Agent**: 수집된 콘텐츠의 유사도를 분석하고 필터링
-4. **Summarization Agent**: 관련 콘텐츠를 그룹화하고 요약
-5. **Report Agent**: 마크다운 형식의 보고서 생성
+### LangGraph Workflow
+```
+START → Web Crawler → Similarity → Summarization → Report → END
+```
+
+### Agent 설명
+
+1. **Web Crawler Node**: URL을 크롤링하고 키워드 관련 콘텐츠를 수집
+2. **Similarity Node**: 수집된 콘텐츠의 유사도를 분석하고 필터링
+3. **Summarization Node**: 관련 콘텐츠를 그룹화하고 요약
+4. **Report Node**: 마크다운 형식의 보고서 생성
+
+### LangGraph의 장점
+
+- **명확한 Workflow 시각화**: 전체 프로세스를 그래프로 표현
+- **상태 기반 데이터 관리**: TypedDict를 사용한 타입 안전성
+- **디버깅 용이**: 각 노드의 입출력 추적 가능
+- **확장성**: 새로운 노드 추가 및 조건부 라우팅 쉬움
 
 ## 프로젝트 구조
 
@@ -22,18 +35,20 @@ research-topic/
 │   ├── web_crawler_agent.py    # 웹 크롤러
 │   ├── similarity_agent.py     # 유사도 분석
 │   ├── summarization_agent.py  # 요약
-│   ├── report_agent.py         # 보고서 생성
-│   └── orchestrator_agent.py   # 오케스트레이터
+│   └── report_agent.py         # 보고서 생성
 ├── inputs/                      # 입력 파일
 │   ├── urls.txt                # 크롤링할 URL 목록
 │   └── keywords.txt            # 검색 키워드 및 설명
 ├── outputs/                     # 출력 파일 (자동 생성)
 │   └── research_report_*.md    # 생성된 보고서
-├── config.py                    # 설정 파일
-├── utils.py                     # 유틸리티 함수
-├── main.py                      # 메인 실행 파일
-├── requirements.txt             # 의존성 패키지
-└── README.md                    # 이 파일
+├── graph_state.py              # LangGraph 상태 정의
+├── graph_nodes.py              # LangGraph 노드 함수
+├── graph_workflow.py           # LangGraph 워크플로우
+├── config.py                   # 설정 파일
+├── utils.py                    # 유틸리티 함수
+├── main.py                     # 메인 실행 파일
+├── pyproject.toml              # 프로젝트 설정 및 의존성
+└── README.md                   # 이 파일
 ```
 
 ## 설치 방법
@@ -56,22 +71,49 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-### 3. 기본 패키지 설치
+### 3. 패키지 설치
 
+**기본 설치 (권장):**
 ```bash
-pip install -r requirements.txt
+# uv 사용
+uv sync
+
+# 또는 pip 사용
+pip install -e .
 ```
 
-### 4. 선택적 패키지 설치
+기본 설치는 다음 패키지를 포함합니다:
+- LangGraph (워크플로우 관리)
+- LangChain (LLM 통합)
+- Requests, BeautifulSoup4 (웹 크롤링)
 
-#### Transformer 기반 유사도 분석 사용 시:
+**선택적 기능 설치:**
+
+Transformer 기반 유사도 분석을 사용하려면:
 ```bash
-pip install sentence-transformers torch
+# uv 사용
+uv sync --extra transformer
+
+# 또는 pip 사용
+pip install -e ".[transformer]"
 ```
 
-#### OpenAI API 기반 요약 사용 시:
+OpenAI LLM 요약을 사용하려면:
 ```bash
-pip install openai
+# uv 사용
+uv sync --extra llm
+
+# 또는 pip 사용
+pip install -e ".[llm]"
+```
+
+모든 기능 설치:
+```bash
+# uv 사용
+uv sync --extra all
+
+# 또는 pip 사용
+pip install -e ".[all]"
 ```
 
 OpenAI API를 사용하려면 환경 변수 설정이 필요합니다:
@@ -128,8 +170,11 @@ python main.py --use-transformer
 # LLM 요약 사용 (OpenAI API 키 필요)
 python main.py --use-llm
 
+# LangGraph workflow 시각화
+python main.py --visualize
+
 # 모든 옵션 결합
-python main.py --depth 2 --max-pages 50 --threshold 0.3 --use-transformer
+python main.py --depth 2 --max-pages 50 --threshold 0.3 --use-transformer --visualize
 ```
 
 ### 4. 사용자 정의 입력 파일 사용
@@ -149,6 +194,7 @@ python main.py --urls my_urls.txt --keywords my_keywords.txt
 | `--threshold` | 유사도 임계값 (0.0-1.0) | `0.3` |
 | `--use-transformer` | Transformer 모델 사용 | `False` |
 | `--use-llm` | LLM 요약 사용 | `False` |
+| `--visualize` | LangGraph workflow 시각화 | `False` |
 
 ## 설정 파일 (`config.py`)
 
@@ -189,28 +235,35 @@ outputs/research_report_20250111_143025.md
 - 참고 자료 링크
 - 상세 내용 (부록)
 
-## 에이전트 상세 설명
+## LangGraph Node 상세 설명
 
-### Web Crawler Agent
+### Web Crawler Node
 - 지정된 URL의 하위 페이지를 재귀적으로 크롤링
 - 키워드와 관련된 콘텐츠만 추출
 - 같은 도메인 내에서만 크롤링 (외부 링크 제외)
 - 서버 부하 방지를 위한 딜레이 적용
+- **출력**: `crawled_data` (크롤링된 페이지 데이터)
 
-### Similarity Agent
+### Similarity Node
 - 키워드 기반 매칭 (기본)
 - Transformer 기반 의미적 유사도 (옵션)
 - 임계값 이하의 콘텐츠 필터링
+- **입력**: `crawled_data`
+- **출력**: `filtered_data` (필터링된 페이지)
 
-### Summarization Agent
+### Summarization Node
 - 키워드별 콘텐츠 그룹화
 - 추출 기반 요약 (기본)
 - LLM 기반 추상적 요약 (옵션)
+- **입력**: `filtered_data`
+- **출력**: `groups` (그룹화된 요약)
 
-### Report Agent
+### Report Node
 - 마크다운 형식의 구조화된 보고서
 - 그룹별 요약 및 참고 자료
 - 상세 내용 부록
+- **입력**: `groups`
+- **출력**: `report_path` (보고서 파일 경로)
 
 ## 예시 사용 시나리오
 
@@ -230,6 +283,34 @@ python main.py --depth 2 --max-pages 50
 ```
 
 ## 문제 해결
+
+### 403 Forbidden 에러
+
+일부 웹사이트(특히 OpenAI, Anthropic 등)는 봇 크롤링을 차단합니다.
+
+**해결 방법:**
+
+1. **다른 URL 사용**: 크롤링 친화적인 사이트를 선택하세요
+   ```
+   # 대안 URL 예시 (inputs/urls.txt)
+   https://arxiv.org/list/cs.AI/recent
+   https://huggingface.co/blog
+   https://machinelearningmastery.com/blog/
+   https://towardsdatascience.com/
+   ```
+
+2. **Depth를 0으로 설정**: 메인 페이지만 크롤링
+   ```bash
+   python main.py --depth 0
+   ```
+
+3. **RSS 피드 사용**: 웹사이트의 RSS 피드 URL을 사용하세요
+   ```
+   https://openai.com/blog/rss.xml
+   https://www.anthropic.com/rss.xml
+   ```
+
+**중요**: 웹사이트의 robots.txt와 이용약관을 항상 확인하고 준수하세요.
 
 ### ImportError: No module named 'sentence_transformers'
 ```bash

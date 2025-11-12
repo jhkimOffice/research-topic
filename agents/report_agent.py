@@ -2,7 +2,7 @@
 Report Agent
 요약된 정보를 기반으로 마크다운 형식의 보고서 생성
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from datetime import datetime
 from agents.base_agent import BaseAgent
 import os

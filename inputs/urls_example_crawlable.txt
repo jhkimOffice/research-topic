@@ -1,0 +1,19 @@
+# Crawlable URLs for AI/ML Research
+# 크롤링 가능한 AI/ML 연구 URL 모음
+
+# Academic Blogs (높은 품질, 크롤링 가능)
+https://bair.berkeley.edu/blog/
+https://ai.stanford.edu/blog/
+
+# AI News & Tech (크롤링 가능)
+https://techcrunch.com/category/artificial-intelligence/
+https://venturebeat.com/category/ai/
+
+# Developer Communities
+https://huggingface.co/blog
+https://paperswithcode.com/latest
+
+# Note: OpenAI (https://openai.com/blog) and Anthropic (https://www.anthropic.com/news)
+# block web crawling. Use RSS feeds instead if needed:
+# - https://openai.com/blog/rss.xml
+# - https://www.anthropic.com/news.rss

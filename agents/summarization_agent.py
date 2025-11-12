@@ -2,7 +2,7 @@
 Summarization Agent
 필터링된 콘텐츠를 그룹화하고 요약
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from collections import defaultdict
 from agents.base_agent import BaseAgent
 import re

@@ -5,7 +5,7 @@ Web Crawler Agent
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Any
 import time
 from agents.base_agent import BaseAgent
 
@@ -20,6 +20,43 @@ class WebCrawlerAgent(BaseAgent):
         self.delay = delay
         self.visited_urls: Set[str] = set()
         self.results: Dict[str, Dict] = {}
+
+        # HTTP 세션 설정 (연결 재사용 및 쿠키 유지)
+        self.session = requests.Session()
+
+        # 더 현실적인 브라우저 헤더 설정
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+        ]
+        self.current_ua_index = 0
+
+        self._update_headers()
+
+    def _update_headers(self):
+        """헤더 업데이트 (User-Agent 순환)"""
+        self.session.headers.update({
+            'User-Agent': self.user_agents[self.current_ua_index],
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+            'DNT': '1',
+        })
+
+    def _rotate_user_agent(self):
+        """User-Agent 순환"""
+        self.current_ua_index = (self.current_ua_index + 1) % len(self.user_agents)
+        self._update_headers()
+        self.log_info(f"User-Agent 변경: {self.session.headers.get('User-Agent')[:50]}...")
 
     def execute(self, input_data: Dict) -> Dict[str, Any]:
         """
@@ -67,9 +104,10 @@ class WebCrawlerAgent(BaseAgent):
         self.log_info(f"크롤링 중 (깊이 {depth}): {url}")
 
         try:
-            # 페이지 가져오기
-            response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
-            response.raise_for_status()
+            # 페이지 가져오기 (재시도 로직 포함)
+            response = self._fetch_with_retry(url, max_retries=3)
+            if response is None:
+                return
 
             soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -99,6 +137,107 @@ class WebCrawlerAgent(BaseAgent):
 
         except Exception as e:
             self.log_error(f"크롤링 실패 {url}: {str(e)}")
+
+    def _fetch_with_retry(self, url: str, max_retries: int = 3):
+        """재시도 로직을 포함한 페이지 가져오기"""
+        for attempt in range(max_retries):
+            try:
+                response = self.session.get(
+                    url,
+                    timeout=15,
+                    allow_redirects=True,
+                    verify=True
+                )
+                response.raise_for_status()
+                return response
+
+            except requests.exceptions.HTTPError as e:
+                status_code = e.response.status_code if e.response else None
+
+                # 상세한 에러 정보 로깅
+                if status_code is None:
+                    self.log_error(f"HTTP Error without status code (시도 {attempt + 1}/{max_retries}): {url}")
+                    self.log_error(f"  오류 상세: {str(e)}")
+                    if attempt < max_retries - 1:
+                        self._rotate_user_agent()
+                        time.sleep(2 * (attempt + 1))
+                        continue
+                    else:
+                        self.log_error(f"  접근 실패 - URL 건너뜀: {url}")
+                        self.log_error(f"  대안: 이 URL은 크롤링이 제한될 수 있습니다. 다른 URL을 시도하세요.")
+                        return None
+
+                if status_code == 403:
+                    self.log_warning(f"403 Forbidden (시도 {attempt + 1}/{max_retries}): {url}")
+                    if attempt < max_retries - 1:
+                        # 다른 User-Agent로 재시도
+                        self._rotate_user_agent()
+                        time.sleep(2 * (attempt + 1))  # 지수 백오프
+                        continue
+                    else:
+                        self.log_error(f"403 Forbidden - 접근 차단된 URL 건너뜀: {url}")
+                        self.log_error(f"  힌트: 이 웹사이트는 봇 크롤링을 차단합니다.")
+                        self.log_error(f"  대안: robots.txt를 확인하거나, RSS 피드를 사용하거나, 다른 크롤링 가능한 URL을 시도하세요.")
+                        return None
+
+                elif status_code == 429:
+                    self.log_warning(f"429 Too Many Requests - 대기 후 재시도: {url}")
+                    time.sleep(5 * (attempt + 1))
+                    continue
+
+                elif status_code in [500, 502, 503, 504]:
+                    self.log_warning(f"{status_code} Server Error - 재시도 {attempt + 1}/{max_retries}: {url}")
+                    if attempt < max_retries - 1:
+                        time.sleep(3 * (attempt + 1))
+                        continue
+                    else:
+                        self.log_error(f"서버 오류로 인해 건너뜀: {url}")
+                        return None
+
+                else:
+                    self.log_error(f"HTTP {status_code} 오류: {url}")
+                    return None
+
+            except requests.exceptions.SSLError as e:
+                self.log_error(f"SSL 인증서 오류 (시도 {attempt + 1}/{max_retries}): {url}")
+                self.log_error(f"  오류 상세: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                else:
+                    self.log_error(f"  SSL 오류로 인해 건너뜀: {url}")
+                    return None
+
+            except requests.exceptions.Timeout:
+                self.log_warning(f"타임아웃 (시도 {attempt + 1}/{max_retries}): {url}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                else:
+                    self.log_error(f"타임아웃으로 인해 건너뜀: {url}")
+                    return None
+
+            except requests.exceptions.ConnectionError as e:
+                self.log_warning(f"연결 오류 (시도 {attempt + 1}/{max_retries}): {url}")
+                self.log_error(f"  오류 상세: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(3)
+                    continue
+                else:
+                    self.log_error(f"연결 오류로 인해 건너뜀: {url}")
+                    return None
+
+            except Exception as e:
+                self.log_error(f"예상치 못한 오류 (시도 {attempt + 1}/{max_retries}): {url}")
+                self.log_error(f"  오류 타입: {type(e).__name__}")
+                self.log_error(f"  오류 상세: {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                    continue
+                else:
+                    return None
+
+        return None
 
     def _is_valid_url(self, url: str) -> bool:
         """URL 유효성 검사"""
