@@ -262,8 +262,24 @@ class WebCrawlerAgent(BaseAgent):
     def _extract_content(self, soup: BeautifulSoup) -> str:
         """페이지 본문 추출"""
         # 불필요한 태그 제거
-        for tag in soup(['script', 'style', 'nav', 'footer', 'header']):
+        for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'noscript']):
             tag.decompose()
+
+        # class/id 기반 제거
+        remove_keywords = [
+            'ad', 'ads', 'advert', 'sponsor', 'promotion', 'ad-wrapper', 'ad-container', 'ad-banner', 'ad-box', 'ad-space', 
+            'ad-unit', 'ad-slot', 'ad-placement', 'ad-placement-wrapper', 'ad-placement-container', 'ad-placement-banner', 'ad-placement-box', 'ad-placement-space', 'ad-placement-unit', # 광고 관련 태그
+            'sidebar', 'related', 'recommend', 'widget', 'module', 'box' # 사이드바 관련 태그
+            'popup', 'overlay', 'cookie', 'banner', # 팝업 관련 태그
+            'comment', 'comments', 'reply', 'replies', # 댓글 관련 태그
+            'share', 'social', 'sns', 'facebook', 'twitter', 'instagram', 'youtube', 'linkedin' # 공유 / 소셜 관련 태그
+        ]
+
+        for kw in remove_keywords:
+            for tag in soup.find_all(class_=lambda x: x and kw in x.lower()): # class 기반 제거
+                tag.decompose()
+            for tag in soup.find_all(id=lambda x: x and kw in x.lower()): # id 기반 제거
+                tag.decompose()
 
         # 본문 추출 시도
         content_tags = ['article', 'main', 'div[class*="content"]', 'div[class*="article"]']
