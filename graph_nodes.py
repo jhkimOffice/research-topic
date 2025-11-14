@@ -170,6 +170,8 @@ def summarization_node(state: ResearchState) -> Dict[str, Any]:
     # Summarization Agent 초기화
     summarization_agent = SummarizationAgent(
         use_llm=config.get('use_llm', False),
+        use_litellm=config.get('use_litellm', True),
+        litellm_model=config.get('litellm_model', None),
         api_key=config.get('openai_api_key', None)
     )
 

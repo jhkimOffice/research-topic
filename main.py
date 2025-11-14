@@ -56,6 +56,18 @@ def main():
         help='LLM 요약 사용 (OpenAI API 키 필요)'
     )
     parser.add_argument(
+        '--use-litellm',
+        action='store_true',
+        default=Config.USE_LITELLM,
+        help='Litellm 요약 사용 (Litellm API 키 필요)'
+    )
+    parser.add_argument(
+        '--litellm-model',
+        type=str,
+        default=Config.LITELLM_MODEL,
+        help='Litellm 모델 (기본값: {Config.LITELLM_MODEL})'
+    )
+    parser.add_argument(
         '--prefer-lang',
         type=str,
         default=Config.PREFER_LANG,
@@ -77,6 +89,9 @@ def main():
     Config.SIMILARITY_THRESHOLD = args.threshold
     Config.USE_TRANSFORMER = args.use_transformer
     Config.USE_LLM = args.use_llm
+    Config.USE_LITELLM = args.use_litellm
+    Config.LITELLM_MODEL = args.litellm_model
+    Config.PREFER_LANG = args.prefer_lang
 
     # 설정 출력
     Config.print_config()

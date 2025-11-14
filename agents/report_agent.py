@@ -45,21 +45,30 @@ class ReportAgent(BaseAgent):
         # 마크다운 보고서 생성
         report_content = self._generate_markdown_report(groups, query_keywords, metadata)
 
-        # 파일로 저장
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_filename = f"research_report_{timestamp}.md"
-        report_path = os.path.join(self.output_dir, report_filename)
+        use_terminal_output = True # debugging
+        if use_terminal_output:
+            print(report_content)
+            return {
+                'success': True,
+                'report_path': "Terminal Output",
+                'report_content': report_content
+            }
+        else:
+            # 파일로 저장
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            report_filename = f"research_report_{timestamp}.md"
+            report_path = os.path.join(self.output_dir, report_filename)
 
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(report_content)
+            with open(report_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
 
-        self.log_info(f"보고서 생성 완료: {report_path}")
+            self.log_info(f"보고서 생성 완료: {report_path}")
 
-        return {
-            'success': True,
-            'report_path': report_path,
-            'report_content': report_content
-        }
+            return {
+                'success': True,
+                'report_path': report_path,
+                'report_content': report_content
+            }
 
     def _generate_markdown_report(self, groups: List[Dict], query_keywords: List[Tuple[str, str]], metadata: Dict) -> str:
         """마크다운 형식의 보고서 생성"""

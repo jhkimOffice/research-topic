@@ -11,20 +11,34 @@ import re
 class SummarizationAgent(BaseAgent):
     """요약 에이전트"""
 
-    def __init__(self, use_llm: bool = False, api_key: str = None):
+    def __init__(self, use_llm: bool = False, use_litellm: bool = False, litellm_model: str = None, api_key: str = None):
         super().__init__("SummarizationAgent")
         self.use_llm = use_llm
+        self.use_litellm = use_litellm
         self.api_key = api_key
         self.client = None
+        self.llm = None
         self.prefer_lang = 'ko'
 
         if use_llm and api_key:
             try:
-                import openai
-                self.client = openai.OpenAI(api_key=api_key)
+                if use_litellm:
+                    import os
+                    from langchain_openai import ChatOpenAI
+                    base_url = os.getenv("OPENAI_BASE_URL", "http://10.229.95.200:4000")
+                    self.llm = ChatOpenAI(
+                        model=litellm_model,
+                        base_url=base_url,
+                        api_key=api_key,
+                        temperature=0.2,
+                        timeout=60,
+                    )
+                else:
+                    import openai
+                    self.client = openai.OpenAI(api_key=api_key)
                 self.log_info("OpenAI API 클라이언트 초기화 완료")
             except ImportError:
-                self.log_warning("openai 라이브러리 미설치. 추출 기반 요약 사용")
+                self.log_warning("LLM 라이브러리 미설치. 추출 기반 요약 사용")
                 self.use_llm = False
             except Exception as e:
                 self.log_error(f"OpenAI 초기화 실패: {str(e)}")
@@ -143,7 +157,7 @@ class SummarizationAgent(BaseAgent):
         description = group['description']
         items = group['items']
 
-        if self.use_llm and self.client:
+        if self.use_llm and (self.client or self.llm):
             summary_text = self._llm_summarize(keyword, description, items)
         else:
             summary_text = self._extractive_summarize(keyword, description, items)
@@ -165,17 +179,26 @@ class SummarizationAgent(BaseAgent):
                 content_text += f"{i}. {item['title']}\n{item['content'][:500]}...\n\n"
             language = "한국어" if self.prefer_lang == 'ko' else "영어"
 
-            response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": f"당신은 기술 문서를 요약하는 전문가입니다. 주어진 문서들을 읽고 {language}로 핵심 내용을 3-5개의 bullet point로 요약해주세요."},
-                    {"role": "user", "content": content_text}
-                ],
-                max_tokens=500,
-                temperature=0.3
-            )
+            if self.use_litellm:
+                from langchain_core.messages import SystemMessage, HumanMessage
+                messages = [
+                    SystemMessage(content=f"당신은 기술 문서를 요약하는 전문가입니다. 주어진 문서들을 읽고 {language}로 핵심 내용을 3-5개의 bullet point로 요약해주세요."),
+                    HumanMessage(content=content_text)
+                ]
+                response = self.llm.invoke(messages)
 
-            return response.choices[0].message.content.strip()
+                return response.content.strip()
+            else:
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": f"당신은 기술 문서를 요약하는 전문가입니다. 주어진 문서들을 읽고 {language}로 핵심 내용을 3-5개의 bullet point로 요약해주세요."},
+                        {"role": "user", "content": content_text}
+                    ],
+                    temperature=0.3
+                )
+
+                return response.choices[0].message.content.strip()
 
         except Exception as e:
             self.log_error(f"LLM 요약 실패: {str(e)}, 추출 기반 요약으로 전환")

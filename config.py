@@ -24,6 +24,8 @@ class Config:
 
     # Summarization Agent 설정
     USE_LLM = True  # LLM 요약 사용 여부 (True/False)
+    USE_LITELLM = True  # Litellm 요약 사용 여부 (True/False)
+    LITELLM_MODEL = os.getenv("LITELLM_MODEL", None)
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)  # OpenAI API 키
     PREFER_LANG = 'ko'  # 요약 언어 (ko/en)
 
@@ -40,6 +42,8 @@ class Config:
             'similarity_threshold': cls.SIMILARITY_THRESHOLD,
             'use_transformer': cls.USE_TRANSFORMER,
             'use_llm': cls.USE_LLM,
+            'use_litellm': cls.USE_LITELLM,
+            'litellm_model': cls.LITELLM_MODEL,
             'openai_api_key': cls.OPENAI_API_KEY,
             'prefer_lang': cls.PREFER_LANG,
         }
@@ -62,6 +66,8 @@ class Config:
         print(f"  - Transformer 사용: {cls.USE_TRANSFORMER}")
         print(f"\n요약 설정:")
         print(f"  - LLM 사용: {cls.USE_LLM}")
+        print(f"  - Litellm 사용: {cls.USE_LITELLM}")
+        print(f"  - Litellm 모델: {cls.LITELLM_MODEL}")
         print(f"  - OpenAI API 키: {'설정됨' if cls.OPENAI_API_KEY else '미설정'}")
         print(f"  - 요약 언어: {cls.PREFER_LANG}")
         print(f"\n출력 디렉토리: {cls.OUTPUT_DIR}")
