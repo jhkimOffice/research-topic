@@ -2,6 +2,7 @@
 Multi-Agent Research System with LangGraph
 메인 실행 파일
 """
+import bootstrap_env
 import sys
 import argparse
 from config import Config
@@ -51,7 +52,14 @@ def main():
     parser.add_argument(
         '--use-llm',
         action='store_true',
+        default=Config.USE_LLM,
         help='LLM 요약 사용 (OpenAI API 키 필요)'
+    )
+    parser.add_argument(
+        '--prefer-lang',
+        type=str,
+        default=Config.PREFER_LANG,
+        help='요약 언어 (기본값: {Config.PREFER_LANG})'
     )
     parser.add_argument(
         '--visualize',

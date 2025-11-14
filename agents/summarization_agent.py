@@ -16,6 +16,7 @@ class SummarizationAgent(BaseAgent):
         self.use_llm = use_llm
         self.api_key = api_key
         self.client = None
+        self.prefer_lang = 'ko'
 
         if use_llm and api_key:
             try:
@@ -47,6 +48,10 @@ class SummarizationAgent(BaseAgent):
         """
         filtered_data = input_data.get('filtered_data', {})
         query_keywords = input_data.get('query_keywords', [])
+        prefer_lang = input_data.get('prefer_lang', 'ko')
+        if prefer_lang not in ['ko', 'en']:
+            prefer_lang = 'ko'
+        self.prefer_lang = prefer_lang
 
         self.log_info(f"요약 시작 - 페이지 수: {len(filtered_data)}")
 
@@ -158,11 +163,12 @@ class SummarizationAgent(BaseAgent):
             content_text = f"키워드: {keyword}\n설명: {description}\n\n관련 문서들:\n\n"
             for i, item in enumerate(items[:10], 1):  # 최대 10개만 사용
                 content_text += f"{i}. {item['title']}\n{item['content'][:500]}...\n\n"
+            language = "한국어" if self.prefer_lang == 'ko' else "영어"
 
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "당신은 기술 문서를 요약하는 전문가입니다. 주어진 문서들을 읽고 핵심 내용을 3-5개의 bullet point로 요약해주세요."},
+                    {"role": "system", "content": f"당신은 기술 문서를 요약하는 전문가입니다. 주어진 문서들을 읽고 {language}로 핵심 내용을 3-5개의 bullet point로 요약해주세요."},
                     {"role": "user", "content": content_text}
                 ],
                 max_tokens=500,
